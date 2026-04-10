@@ -5,171 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Game</title>
     <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #000; }
-        canvas { border: 2px solid #fff; }
-        h1 { color: #fff; text-align: center; }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #282c34;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #game {
+            display: grid;
+            grid-template-columns: repeat(10, 30px);
+            grid-template-rows: repeat(20, 30px);
+            gap: 1px;
+        }
+        .piece {
+            width: 30px;
+            height: 30px;
+            background-color: #61dafb;
+        }
+        .control {
+            margin-top: 20px;
+        }
+        .instructions {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-    <div>
-        <h1>Tetris</h1>
-        <canvas id="gameCanvas" width="240" height="400"></canvas>
-        <br>
-        <div>Score: <span id="score">0</span></div>
-        <div>Next Piece: <span id="nextPiece"></span></div>
+    <div class="instructions">
+        Controls:
+        <ul>
+            <li>Arrow Left: Move Left</li>
+            <li>Arrow Right: Move Right</li>
+            <li>Arrow Down: Drop Faster</li>
+            <li>Space: Rotate</li>
+        </ul>
     </div>
+    <div id="game"></div>
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const context = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('score');
-        const nextPieceDisplay = document.getElementById('nextPiece');
+        const gameArea = document.getElementById('game');
+        let currentPiece;
 
-        // Game settings
-        const ROWS = 20;
-        const COLS = 10;
-        const BLOCK_SIZE = 20;
-        let score = 0;
-        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-        let currentPiece, nextPiece;
-        let isPaused = false;
-
-        // Tetromino shapes
-        const TETROMINOS = [
-            [[1, 1, 1, 1]], // I
-            [[1, 1], [1, 1]], // O
-            [[0, 1, 0], [1, 1, 1]], // T
-            [[1, 1, 0], [0, 1, 1]], // S
-            [[0, 1, 1], [1, 1, 0]], // Z
-            [[1, 0, 0], [1, 1, 1]], // L
-            [[0, 0, 1], [1, 1, 1]]  // J
-        ];
-
-        // Functions for game logic...
-        function drawBlock(x, y) {
-            context.fillStyle = '#fff';
-            context.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            context.strokeStyle = '#000';
-            context.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-        }
-
-        function drawBoard() {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            board.forEach((row, rowIndex) => {
-                row.forEach((value, colIndex) => {
-                    if (value) drawBlock(colIndex, rowIndex);
-                });
-            });
-        }
-
-        function drawPiece() {
-            currentPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value) drawBlock(currentPiece.x + x, currentPiece.y + y);
-                });
-            });
-        }
-
-        function mergePiece() {
-            currentPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value) board[currentPiece.y + y][currentPiece.x + x] = value;
-                });
-            });
-        }
-
-        function clearLines() {
-            board = board.filter(row => row.some(value => value === 0));
-            const linesCleared = ROWS - board.length;
-            score += linesCleared;
-            scoreDisplay.innerText = score;
-            while (board.length < ROWS) {
-                board.unshift(Array(COLS).fill(0));
-            }
-        }
-
-        function gameOver() {
-            if (board[0].some(value => value)) {
-                alert('Game Over! Your score: ' + score);
-                resetGame();
-            }
-        }
-
-        function resetGame() {
-            board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-            score = 0;
-            scoreDisplay.innerText = 0;
-            nextPiece = randomPiece();
-            currentPiece = nextPiece;
-            nextPiece = randomPiece();
-        }
-
-        function randomPiece() {
-            const index = Math.floor(Math.random() * TETROMINOS.length);
-            return { shape: TETROMINOS[index], x: COLS / 2 - 1, y: 0 };
+        function createPiece() {
+            // Logic to create a new Tetris piece
+            currentPiece = document.createElement('div');
+            currentPiece.className = 'piece';
+            gameArea.appendChild(currentPiece);
         }
 
         function dropPiece() {
-            if (!isPaused) {
-                currentPiece.y++;
-                if (collision()) {
-                    currentPiece.y--;
-                    mergePiece();
-                    clearLines();
-                    gameOver();
-                    currentPiece = nextPiece;
-                    nextPiece = randomPiece();
-                }
-                drawBoard();
-                drawPiece();
-            }
-        }
-
-        function collision() {
-            return currentPiece.shape.some((row, y) => {
-                return row.some((value, x) => {
-                    if (value) {
-                        const newX = currentPiece.x + x;
-                        const newY = currentPiece.y + y;
-                        return (newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && board[newY][newX]));
-                    }
-                    return false;
-                });
-            });
-        }
-
-        function rotatePiece() {
-            const originalShape = currentPiece.shape;
-            currentPiece.shape = originalShape[0].map((val, index) =>
-                originalShape.map(row => row[index]).reverse()
-            );
-            if (collision()) {
-                currentPiece.shape = originalShape;
-            }
+            // Logic to drop the piece
+            // Implement faster drop on Arrow Down
+            currentPiece.style.gridRowStart = (parseInt(currentPiece.style.gridRowStart) || 1) + 1;
         }
 
         document.addEventListener('keydown', (event) => {
-            switch (event.key) {
+            switch(event.key) {
                 case 'ArrowLeft':
-                    currentPiece.x--;
-                    if (collision()) currentPiece.x++;
+                    // Move left
                     break;
                 case 'ArrowRight':
-                    currentPiece.x++;
-                    if (collision()) currentPiece.x--;
+                    // Move right
                     break;
-                case ' ': // Space to rotate
-                    rotatePiece();
+                case 'ArrowDown':
+                    dropPiece(); // Drop faster
                     break;
-                case 'p': // Pause
-                    isPaused = !isPaused;
+                case ' ': // Space key
+                    // Rotate piece
                     break;
             }
-            drawBoard();
-            drawPiece();
         });
 
-        resetGame();
-        setInterval(dropPiece, 1000);
+        createPiece(); // Start the game
     </script>
 </body>
 </html>
